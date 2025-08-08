@@ -492,7 +492,9 @@ class SlurmExecutor(Executor):
         env_vars: Optional[Dict[str, str]] = None,
         add_workspace_to_pythonpath: bool = True,
     ):
-        cfg_zlib = ZlibJSONSerializer().serialize(space.__io__)
+        # Create a clean config for remote execution (exclude local-only fields)
+        remote_config = self._create_remote_compatible_config(space.__io__)
+        cfg_zlib = ZlibJSONSerializer().serialize(remote_config)
 
         _container_dir = f"/workspaces/{space.name}"
 
@@ -550,6 +552,48 @@ class SlurmExecutor(Executor):
 
     def supports_launcher_transform(self) -> bool:
         return True if isinstance(self.get_launcher(), SlurmTemplate) else False
+
+    def _create_remote_compatible_config(self, config):
+        """
+        Create a remote-compatible version of the config by removing local-only fields.
+
+        This ensures backward compatibility with older versions of NeMo-Run on remote hosts
+        by excluding fields like host_identity_file that are only needed locally.
+        """
+        import copy
+        import fiddle as fdl
+        from nemo_run.core.tunnel.client import SSHTunnel
+
+        # Check if config has tunnel with host_identity_file
+        if not (hasattr(config, 'executor') and
+                hasattr(config.executor, 'tunnel') and
+                hasattr(config.executor.tunnel, '__arguments__') and
+                'host_identity_file' in config.executor.tunnel.__arguments__):
+            # No host_identity_file to remove, return as-is
+            return config
+
+        try:
+            # Create a deep copy to avoid modifying the original
+            import copy
+            new_config = copy.deepcopy(config)
+
+            # Get tunnel arguments, excluding host_identity_file
+            tunnel_config = new_config.executor.tunnel
+            clean_tunnel_args = {
+                k: v for k, v in tunnel_config.__arguments__.items()
+                if k != 'host_identity_file'
+            }
+
+            # Create a new tunnel config without host_identity_file
+            new_config.executor.tunnel = fdl.Config(SSHTunnel, **clean_tunnel_args)
+
+            return new_config
+
+        except Exception as e:
+            # If anything goes wrong, log and return original
+            import logging
+            logging.warning(f"Failed to create remote-compatible config: {e}")
+            return config
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []

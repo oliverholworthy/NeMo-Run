@@ -453,6 +453,60 @@ class TestSlurmTunnelCallback:
                         # Verify other setup occurred
                         assert callback.ssh_entry_added is True
 
+    def test_create_remote_compatible_config(self):
+        """Test _create_remote_compatible_config removes host_identity_file for backward compatibility."""
+        import fiddle as fdl
+        from nemo_run.core.tunnel.client import SSHTunnel
+        from nemo_run.devspace.base import DevSpace
+
+        executor = SlurmExecutor(account="test")
+
+        # Create a config with host_identity_file (new version)
+        original_config = fdl.Config(
+            DevSpace,
+            name="test-space",
+            executor=fdl.Config(
+                SlurmExecutor,
+                account="test",
+                tunnel=fdl.Config(
+                    SSHTunnel,
+                    host="example.com",
+                    user="testuser",
+                    job_dir="/remote/job",
+                    host_identity_file="/path/to/key"  # This should be removed
+                )
+            )
+        )
+
+        # Test the remote compatibility function
+        remote_config = executor._create_remote_compatible_config(original_config)
+
+        # Verify host_identity_file was removed
+        tunnel_args = remote_config.executor.tunnel.__arguments__
+        assert 'host_identity_file' not in tunnel_args
+
+        # Verify other fields are preserved
+        assert tunnel_args['host'] == "example.com"
+        assert tunnel_args['user'] == "testuser"
+        assert tunnel_args['job_dir'] == "/remote/job"
+
+        # Verify the config can still be serialized/deserialized
+        from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+        serializer = ZlibJSONSerializer()
+
+        # Should serialize without error
+        zlib_data = serializer.serialize(remote_config)
+        assert isinstance(zlib_data, str)
+
+        # Should deserialize without error (this is what remote host does)
+        restored_config = serializer.deserialize(zlib_data)
+        restored_space = fdl.build(restored_config)
+
+        # Verify the restored space works correctly
+        assert restored_space.name == "test-space"
+        # host_identity_file should be None (default) since it was excluded from config
+        assert restored_space.executor.tunnel.host_identity_file is None
+
 
 class TestSlurmExecutor:
     def test_merge_single_executor(self):
