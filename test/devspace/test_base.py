@@ -38,18 +38,6 @@ class TestDevSpace:
         assert space.use_packager is False
         assert space.env_vars is None
         assert space.add_workspace_to_pythonpath is True
-        assert space.host_identity_file is None
-
-    def test_devspace_init_with_identity_file(self, mocker):
-        executor_mock = mocker.Mock()
-        space = DevSpace("test", executor_mock, host_identity_file="/path/to/key")
-        assert space.name == "test"
-        assert space.executor == executor_mock
-        assert space.cmd == "launch_devspace"
-        assert space.use_packager is False
-        assert space.env_vars is None
-        assert space.add_workspace_to_pythonpath is True
-        assert space.host_identity_file == "/path/to/key"
 
     def test_devspace_connect(self, mocker):
         tunnel_mock = mocker.patch("nemo_run.core.tunnel.client.SSHTunnel")
@@ -79,9 +67,13 @@ class TestDevSpace:
 
         DevSpace.connect("user@host", "/path", "/path/to/key")
 
-        # Check that SSHTunnel was called with the identity file
+        # Check that SSHTunnel was called with both identity and host_identity_file
         tunnel_mock.assert_called_with(
-            host="host", user="user", job_dir="/path", identity="/path/to/key"
+            host="host",
+            user="user",
+            job_dir="/path",
+            identity="/path/to/key",
+            host_identity_file="/path/to/key",
         )
         assert tunnel_mock().run.called
 

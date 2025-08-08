@@ -136,7 +136,22 @@ class TestSSHTunnel:
         assert ssh_tunnel.user == "test_user"
         assert ssh_tunnel.job_dir == "/remote/job"
         assert ssh_tunnel.identity is None
+        assert ssh_tunnel.host_identity_file is None
         assert ssh_tunnel.session is None
+
+    def test_init_with_host_identity_file(self):
+        tunnel = SSHTunnel(
+            host="test.host",
+            user="test_user",
+            job_dir="/remote/job",
+            host_identity_file="/path/to/key"
+        )
+        assert tunnel.host == "test.host"
+        assert tunnel.user == "test_user"
+        assert tunnel.job_dir == "/remote/job"
+        assert tunnel.identity is None
+        assert tunnel.host_identity_file == "/path/to/key"
+        assert tunnel.session is None
 
     def test_set_job_dir(self, ssh_tunnel):
         ssh_tunnel._set_job_dir("experiment_123")

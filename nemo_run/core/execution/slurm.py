@@ -1118,7 +1118,11 @@ class SlurmTunnelCallback(Callback):
 
             try:
                 self.ssh_config.add_entry(
-                    metadata.user, "localhost", int(metadata.port), self.tunnel_name, self.space.host_identity_file
+                    metadata.user,
+                    "localhost",
+                    int(metadata.port),
+                    self.tunnel_name,
+                    self.tunnel.host_identity_file,
                 )
             except Exception as e:
                 self.console.print(f"[bold red]Error adding SSH config entry: {e}")

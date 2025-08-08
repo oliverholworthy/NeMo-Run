@@ -197,6 +197,7 @@ class SSHTunnel(Tunnel):
     host: str
     user: str
     identity: Optional[str] = None
+    host_identity_file: Optional[str] = None
     shell: Optional[str] = None
     pre_command: Optional[str] = None
 

@@ -343,16 +343,17 @@ class TestSlurmTunnelCallback:
 
     def test_on_interval_ssh_config_generation_with_identity_file(self, mock_executor, mock_space):
         """Test on_interval method for SSH config generation with identity file."""
-        # Set up the space with identity file
-        mock_space.host_identity_file = "/path/to/test/key"
+        # Set up the tunnel with identity file instead of space
+        mock_tunnel = MagicMock()
+        mock_tunnel.host_identity_file = "/path/to/test/key"
 
         # Set up callback
         callback = SlurmTunnelCallback(mock_executor, mock_space)
         callback.srun_is_done = True  # Skip srun processing
         callback.editor_started = False  # Trigger SSH config generation
 
-        # Mock tunnel and console
-        callback.tunnel = MagicMock()
+        # Set tunnel and console
+        callback.tunnel = mock_tunnel
         callback.console = MagicMock()
 
         # Mock TunnelMetadata
@@ -378,12 +379,14 @@ class TestSlurmTunnelCallback:
                     callback.ssh_config = mock_ssh_config
 
                     # Mock time.sleep and launch_editor to speed up test and avoid interactive prompts
-                    with patch("nemo_run.core.execution.slurm.time.sleep"), \
-                         patch("nemo_run.devspace.editor.launch_editor") as mock_launch_editor:
+                    with (
+                        patch("nemo_run.core.execution.slurm.time.sleep"),
+                        patch("nemo_run.devspace.editor.launch_editor"),
+                    ):
                         # Execute the method
                         callback.on_interval()
 
-                        # Verify SSH config add_entry was called with identity file
+                        # Verify SSH config add_entry was called with identity file from tunnel
                         mock_ssh_config.add_entry.assert_called_once_with(
                             "testuser", "localhost", 2222, callback.tunnel_name, "/path/to/test/key"
                         )
@@ -395,18 +398,21 @@ class TestSlurmTunnelCallback:
                         )
                         mock_forward_context.__enter__.assert_called_once()
 
-    def test_on_interval_ssh_config_generation_without_identity_file(self, mock_executor, mock_space):
+    def test_on_interval_ssh_config_generation_without_identity_file(
+        self, mock_executor, mock_space
+    ):
         """Test on_interval method for SSH config generation without identity file."""
-        # Set up the space without identity file
-        mock_space.host_identity_file = None
+        # Set up the tunnel without identity file
+        mock_tunnel = MagicMock()
+        mock_tunnel.host_identity_file = None
 
         # Set up callback
         callback = SlurmTunnelCallback(mock_executor, mock_space)
         callback.srun_is_done = True  # Skip srun processing
         callback.editor_started = False  # Trigger SSH config generation
 
-        # Mock tunnel and console
-        callback.tunnel = MagicMock()
+        # Set tunnel and console
+        callback.tunnel = mock_tunnel
         callback.console = MagicMock()
 
         # Mock TunnelMetadata
@@ -432,8 +438,10 @@ class TestSlurmTunnelCallback:
                     callback.ssh_config = mock_ssh_config
 
                     # Mock time.sleep and launch_editor to speed up test and avoid interactive prompts
-                    with patch("nemo_run.core.execution.slurm.time.sleep"), \
-                         patch("nemo_run.devspace.editor.launch_editor") as mock_launch_editor:
+                    with (
+                        patch("nemo_run.core.execution.slurm.time.sleep"),
+                        patch("nemo_run.devspace.editor.launch_editor"),
+                    ):
                         # Execute the method
                         callback.on_interval()
 
