@@ -34,6 +34,7 @@ class DevSpace:
         use_packager: bool = False,
         env_vars: Optional[Dict[str, str]] = None,
         add_workspace_to_pythonpath: bool = True,
+        host_identity_file: Optional[str] = None,
     ):
         self.name = name
         self.executor = executor
@@ -41,14 +42,15 @@ class DevSpace:
         self.use_packager = use_packager
         self.env_vars = env_vars
         self.add_workspace_to_pythonpath = add_workspace_to_pythonpath
+        self.host_identity_file = host_identity_file
 
     @classmethod
-    def connect(cls, host: str, path: str):
+    def connect(cls, host: str, path: str, host_identity_file: Optional[str] = None):
         from nemo_run.core.tunnel.client import SSHTunnel
 
         user, hostname = host.split("@")
 
-        tunnel = SSHTunnel(host=hostname, user=user, job_dir=path)
+        tunnel = SSHTunnel(host=hostname, user=user, job_dir=path, identity=host_identity_file)
         tunnel.connect()
 
         try:

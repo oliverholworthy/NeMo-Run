@@ -469,6 +469,81 @@ class TestSSHConfigFile:
         lines = ["Host other\n", "  User other\n"]
         handle.writelines.assert_called_once_with(lines)
 
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.exists", return_value=False)
+    def test_add_entry_with_identity_file_new_file(self, mock_exists, mock_file):
+        config_file = SSHConfigFile(config_path="/test/config")
+        config_file.add_entry("user", "host", 22, "test", "/path/to/key")
+
+        mock_file.assert_called_once_with("/test/config", "w")
+        expected_content = "Host tunnel.test\n    User user\n    HostName host\n    Port 22\n    IdentityFile /path/to/key\n"
+        mock_file().write.assert_called_once_with(expected_content)
+
+    @patch("builtins.open", new_callable=mock_open, read_data="Existing content\n")
+    @patch("os.path.exists", return_value=True)
+    def test_add_entry_with_identity_file_existing_file(self, mock_exists, mock_file):
+        config_file = SSHConfigFile(config_path="/test/config")
+        config_file.add_entry("user", "host", 22, "test", "/path/to/key")
+
+        calls = [call("/test/config", "r"), call("/test/config", "w")]
+        assert mock_file.call_args_list == calls
+
+        # Check that the entry with identity file was appended
+        handle = mock_file()
+        expected_content = "Host tunnel.test\n    User user\n    HostName host\n    Port 22\n    IdentityFile /path/to/key\n"
+        handle.writelines.assert_called_once_with(["Existing content\n", expected_content])
+
+    @patch(
+        "builtins.open",
+        new_callable=mock_open,
+        read_data="Host tunnel.test\n  User old_user\n  HostName old_host\n  Port 2222\n  IdentityFile /old/key\nHost other\n  User other\n",
+    )
+    @patch("os.path.exists", return_value=True)
+    def test_add_entry_with_identity_file_update_existing(self, mock_exists, mock_file):
+        config_file = SSHConfigFile(config_path="/test/config")
+        config_file.add_entry("new_user", "new_host", 22, "test", "/new/key")
+
+        calls = [call("/test/config", "r"), call("/test/config", "w")]
+        assert mock_file.call_args_list == calls
+
+        # Check that the existing entry was replaced with new values including identity file
+        handle = mock_file()
+        expected_lines = [
+            "Host tunnel.test\n",
+            "  User new_user\n",
+            "  HostName new_host\n",
+            "  Port 22\n",
+            "  IdentityFile /new/key\n",
+            "Host other\n",
+            "  User other\n",
+        ]
+        handle.writelines.assert_called_once_with(expected_lines)
+
+    @patch(
+        "builtins.open",
+        new_callable=mock_open,
+        read_data="Host tunnel.test\n  User old_user\n  HostName old_host\n  Port 2222\n  IdentityFile /old/key\nHost other\n  User other\n",
+    )
+    @patch("os.path.exists", return_value=True)
+    def test_add_entry_without_identity_file_update_removes_identity(self, mock_exists, mock_file):
+        config_file = SSHConfigFile(config_path="/test/config")
+        config_file.add_entry("new_user", "new_host", 22, "test")  # No identity file
+
+        calls = [call("/test/config", "r"), call("/test/config", "w")]
+        assert mock_file.call_args_list == calls
+
+        # Check that the existing entry was replaced and identity file was removed
+        handle = mock_file()
+        expected_lines = [
+            "Host tunnel.test\n",
+            "  User new_user\n",
+            "  HostName new_host\n",
+            "  Port 22\n",
+            "Host other\n",
+            "  User other\n",
+        ]
+        handle.writelines.assert_called_once_with(expected_lines)
+
 
 class TestCallback:
     def test_setup(self):

@@ -53,8 +53,14 @@ def launch(space: devspace.DevSpace):
     space.launch()
 
 
-def connect(host: str, path: str):
-    devspace.DevSpace.connect(host, path)
+def connect(
+    host: str,
+    path: str,
+    host_identity_file: str = typer.Option(
+        None, "--host-identity-file", help="SSH identity file for host connection"
+    ),
+):
+    devspace.DevSpace.connect(host, path, host_identity_file)
 
 
 def create() -> typer.Typer:

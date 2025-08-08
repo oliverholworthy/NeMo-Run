@@ -38,6 +38,18 @@ class TestDevSpace:
         assert space.use_packager is False
         assert space.env_vars is None
         assert space.add_workspace_to_pythonpath is True
+        assert space.host_identity_file is None
+
+    def test_devspace_init_with_identity_file(self, mocker):
+        executor_mock = mocker.Mock()
+        space = DevSpace("test", executor_mock, host_identity_file="/path/to/key")
+        assert space.name == "test"
+        assert space.executor == executor_mock
+        assert space.cmd == "launch_devspace"
+        assert space.use_packager is False
+        assert space.env_vars is None
+        assert space.add_workspace_to_pythonpath is True
+        assert space.host_identity_file == "/path/to/key"
 
     def test_devspace_connect(self, mocker):
         tunnel_mock = mocker.patch("nemo_run.core.tunnel.client.SSHTunnel")
@@ -52,6 +64,25 @@ class TestDevSpace:
 
         DevSpace.connect("user@host", "/path")
         assert tunnel_mock.called
+        assert tunnel_mock().run.called
+
+    def test_devspace_connect_with_identity_file(self, mocker):
+        tunnel_mock = mocker.patch("nemo_run.core.tunnel.client.SSHTunnel")
+        tunnel_mock.return_value.run.return_value.stdout = "Test Zlib String"
+        mocker.patch("nemo_run.devspace.base.ZlibJSONSerializer").deserialize.return_value = {
+            "name": "test",
+            "executor": "mock_executor",
+        }
+        mocker.patch("fiddle.build").return_value = DevSpace(
+            "test", executor=DummyExecutor(tunnel=tunnel_mock)
+        )
+
+        DevSpace.connect("user@host", "/path", "/path/to/key")
+
+        # Check that SSHTunnel was called with the identity file
+        tunnel_mock.assert_called_with(
+            host="host", user="user", job_dir="/path", identity="/path/to/key"
+        )
         assert tunnel_mock().run.called
 
     def test_devspace_connect_cat_exception(self, mocker):

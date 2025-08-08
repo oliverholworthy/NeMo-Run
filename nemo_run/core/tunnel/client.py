@@ -366,18 +366,37 @@ class SSHConfigFile:
 
         return config_path
 
-    def add_entry(self, user: str, hostname: str, port: int, name: str):
+    def add_entry(
+        self,
+        user: str,
+        hostname: str,
+        port: int,
+        name: str,
+        host_identity_file: Optional[str] = None,
+    ):
         host_config_path = self._get_host_config_path()
         if host_config_path:
-            self._add_entry(user, hostname, port, name, host_config_path)
-        self._add_entry(user, hostname, port, name, self.config_path)
+            self._add_entry(user, hostname, port, name, host_config_path, host_identity_file)
+        self._add_entry(user, hostname, port, name, self.config_path, host_identity_file)
 
-    def _add_entry(self, user: str, hostname: str, port: int, name: str, config_path: str):
+    def _add_entry(
+        self,
+        user: str,
+        hostname: str,
+        port: int,
+        name: str,
+        config_path: str,
+        host_identity_file: Optional[str] = None,
+    ):
         host = f"tunnel.{name}"
         new_config_entry = f"""Host {host}
     User {user}
     HostName {hostname}
     Port {port}"""
+
+        if host_identity_file:
+            new_config_entry += f"""
+    IdentityFile {host_identity_file}"""
 
         if os.path.exists(config_path):
             with open(config_path, "r") as file:
@@ -392,10 +411,24 @@ class SSHConfigFile:
 
             # Update existing entry
             if host_index is not None:
-                lines[host_index] = f"Host {host}\n"
-                lines[host_index + 1] = f"  User {user}\n"
-                lines[host_index + 2] = f"  HostName {hostname}\n"
-                lines[host_index + 3] = f"  Port {port}\n"
+                # Find the end of the existing entry
+                end_index = host_index + 1
+                while end_index < len(lines) and (
+                    lines[end_index].startswith("  ") or lines[end_index].startswith("\t")
+                ):
+                    end_index += 1
+
+                # Replace the existing entry with the new one
+                new_lines = [
+                    f"Host {host}\n",
+                    f"  User {user}\n",
+                    f"  HostName {hostname}\n",
+                    f"  Port {port}\n",
+                ]
+                if host_identity_file:
+                    new_lines.append(f"  IdentityFile {host_identity_file}\n")
+
+                lines[host_index:end_index] = new_lines
             else:  # Add new entry
                 lines.append(new_config_entry + "\n")
 
