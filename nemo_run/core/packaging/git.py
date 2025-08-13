@@ -148,7 +148,7 @@ class GitArchivePackager(Packager):
                 # Get the list of files with unstaged changes
                 changed_files = (
                     subprocess.run(
-                        "git diff --name-only", shell=True, capture_output=True, text=True
+                        "git diff --name-only HEAD", shell=True, capture_output=True, text=True
                     )
                     .stdout.strip()
                     .split("\n")
